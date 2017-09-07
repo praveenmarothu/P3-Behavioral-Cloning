@@ -33,7 +33,11 @@ model.add(Dense(100, activation='relu'))
 model.add(Dropout(.25))
 model.add(Dense(20, activation='relu'))
 model.add(Dense(1))
+
+model.summary()
+
 model.compile(optimizer=Adam(lr=1e-04), loss='mean_squared_error')
+
 
 batch_size=128
 
