@@ -10,21 +10,16 @@ from keras.layers.core import Flatten, Dense, Dropout, Lambda
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import Adam
-from sklearn import model_selection
-from data import generate_samples
+
+from data import get_csv_data,generate_samples
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-local_project_path = './'
-local_data_path    = os.path.join(local_project_path, 'SimulatorTraining')
-batch_size         = 128
+train,valid = get_csv_data()
 
-
-dlog_csv_path = os.path.join(local_data_path, 'driving_log.csv')
-driving_log   = pd.io.parsers.read_csv(dlog_csv_path)
-train, valid  = model_selection.train_test_split(driving_log, test_size=.2)
 
 model = Sequential()
+model.add(Lambda(lambda x:x/255-0.5,input_shape=(32,128,3)))
 model.add(Conv2D(16, (3, 3), activation='relu', input_shape=(32, 128, 3)))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Conv2D(32, (3, 3), activation='relu'))
@@ -40,12 +35,14 @@ model.add(Dense(20, activation='relu'))
 model.add(Dense(1))
 model.compile(optimizer=Adam(lr=1e-04), loss='mean_squared_error')
 
+batch_size=128
+
 history = model.fit_generator(
-    generate_samples(train, local_data_path, batch_size),
-    steps_per_epoch=train.shape[0] / batch_size,
-    nb_epoch=50,
-    validation_data=generate_samples(valid, local_data_path, batch_size),
-    validation_steps=valid.shape[0] / batch_size
+    generate_samples(train,batch_size),
+    steps_per_epoch=train.shape[0] // batch_size,
+    nb_epoch=25,
+    validation_data=generate_samples(valid, batch_size),
+    validation_steps=valid.shape[0] // batch_size
 )
 
 model.save('model.h5')

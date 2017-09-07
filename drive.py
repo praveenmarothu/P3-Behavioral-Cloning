@@ -15,9 +15,7 @@ from io import BytesIO
 from keras.models import load_model
 import h5py
 from keras import __version__ as keras_version
-
-from data import preprocess
-
+from data import preprocess_image
 
 sio = socketio.Server()
 app = Flask(__name__)
@@ -63,12 +61,10 @@ def telemetry(sid, data):
         # The current image from the center camera of the car
         imgString = data["image"]
         image = Image.open(BytesIO(base64.b64decode(imgString)))
-        image_array = preprocess(np.asarray(image))
-        transformed_image_array = image_array[None, :, :, :]
-        steering_angle = float(model.predict(transformed_image_array, batch_size=1))
-
+        img = preprocess_image(np.asarray(image))
+        imgarr = img[None, :, :, :]
+        steering_angle = float(model.predict(imgarr, batch_size=1))
         throttle = controller.update(float(speed))
-
         print(steering_angle, throttle)
         send_control(steering_angle, throttle)
 
