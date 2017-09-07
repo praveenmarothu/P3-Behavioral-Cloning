@@ -48,7 +48,7 @@ The model includes RELU layers to introduce nonlinearity and the data is normali
 
 The model contains dropout layers in order to reduce overfitting (model.py lines 31,33). 
 
-The model was trained and validated on different data sets to ensure that the model was not overfitting. The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
+The model was trained and validated on different data sets to ensure that the model was not overfitting. The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track. The training loss and validation loss during the training gave a very easy way to identify the overfitting issue. Whenever the train loss is substantially less than the validation loss then it a very good case of overfitting.
 
 #### 3. Model parameter tuning
 
@@ -56,7 +56,9 @@ The model used an adam optimizer, so the learning rate was not tuned manually (m
 
 #### 4. Appropriate training data
 
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road.
+Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road and driving in the opposite direction. 
+
+My initial runs had issue with the sharp turns, to overcome this I captured data specifically at the sharp curves multiple times so that I have good amount of data at these points.
 
 For details about how I created the training data, see the next section. 
 
@@ -64,23 +66,39 @@ For details about how I created the training data, see the next section.
 
 #### 1. Solution Design Approach
 
-The overall strategy for deriving a model architecture was to use an existing, tried and tested model and do the necessary simplications/modifications to suit my requirement. 
+The overall strategy for deriving a model architecture was to use an existing, tried and tested model and do the necessary simplications/modifications to suit the requirement. 
 
-I started with the LeNet model and did a few training runs. The simplicity of the model helped me to understand the entire workflow and see how the car was driving with the recorded data. And then I moved to a more powerful NVIDIA model. I finally settled with a simplified version of the NIVIDIA model.
+I started with the LeNet model and did a few training runs. The simplicity of the model helped me to understand the entire workflow and see how the car was driving with the recorded data. And then I moved to a more robust NVIDIA model. I finally settled with a simplified version of the NIVIDIA model.
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
+In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I then monitored the train & validation loss to see if they are diverging significantly implying overfitting. With the good amount of training data and the Dropout Layers, The training did not have the overfitting issue.
 
-To combat the overfitting, I modified the model so that ...
-
-Then I ... 
-
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
+The final step was to run the simulator to see how well the car was driving around track one. I did have a few issues initially.
+1. There were a few spots where the vehicle fell off the track initially. To improve the driving behavior in these cases, I captured data specifically at the sharp curves multiple times.
+2. The car was driving on the right lane marker and also there is a bias for the car to be towards the right lane marker. To overcome this , I captured data by driving in the opposite direction.
 
 At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
 
 #### 2. Final Model Architecture
 
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
+The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes.
+```python
+model = Sequential()
+model.add(Lambda(lambda x:x/255-0.5,input_shape=(32,128,3)))
+model.add(Conv2D(16, (3, 3), activation='relu', input_shape=(32, 128, 3)))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(32, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Flatten())
+model.add(Dense(500, activation='relu'))
+model.add(Dropout(.5))
+model.add(Dense(100, activation='relu'))
+model.add(Dropout(.25))
+model.add(Dense(20, activation='relu'))
+model.add(Dense(1))
+model.compile(optimizer=Adam(lr=1e-04), loss='mean_squared_error')
+```
 
 Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
 
@@ -104,11 +122,69 @@ To augment the data sat, I also flipped images and angles thinking that this wou
 
 After the collection process, I had 6068 number of data points in the driving_log.csv file. I augmented this data using the below techniques.
 
-1. Including Left and Right images : I added the left and right images and adjusted the steering angle by adding +0.25 & -0.25 to the existing steering value.
- I then preprocessed this data by ...
-I finally randomly shuffled the data set and put Y% of the data into a validation set. 
+1. **Including Left and Right images :** I added the left and right images and adjusted the steering angle by adding +0.25 (left) & -0.25 (right) to the existing steering value. I selected random 50% data for left and another random 50% for the right images. 
 
-I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+```python
+    #data.py: get_csv_data()
+
+    # Indices of random 50% sample of the data
+    ileft = np.random.choice(count,count,replace=False)
+    iright = np.random.choice(count,count//2,replace=False)
+
+    data=driving_log[:,[CENTER,STEERING,THROTTLE,BRAKE,SPEED]]
+
+    left_data=driving_log[:,[LEFT,STEERING,THROTTLE,BRAKE,SPEED]] [ileft , :]
+    right_data=driving_log[:,[RIGHT,STEERING,THROTTLE,BRAKE,SPEED]] [iright , :]
+
+    left_data[:,[STEERING]]=left_data[:,[STEERING]] + 0.25
+    right_data[:,[STEERING]]=right_data[:,[STEERING]] - 0.25
+
+```
+
+2. **Flipping Data :** To further augment the data , for each batch in the generator, I added a flipped set of the current batch. So the generator would generate a batch with twice the batch size data. The image pixels are flipped and the steering angle is also adjusted by multiplying -1.
+
+```python
+
+    #data.py : get_batch_data()
+
+    for row in batch:
+        image = preprocess_image(plt.imread( "SimulatorTraining/" + row[IMG]))
+        angle = row[STEERING]
+        x.append( image )
+        y.append( angle )
+        x.append( image[:,::-1,:] ) # Flip Image
+        y.append( -1 * angle ) #Adjust Steering angle
+```
+
+A couple of other augmentation techniques might be useful in other scenerios. But these are not used as I think these techniques will not add much value in the current problem scenerio.
+1. Random shifting the top,bottom,left and right while cropping
+2. Altering the image brightness to create an images that can be used a night images
+3. Adding random shadows to images.
+
+I then preprocessed this data by calling the `preprocess_image()` on the image. This will crop the image to remove the top and bottom regions that are clutter. Also it then resizes the image to 128x32 size
+
+```python
+
+def preprocess_image(image):
+
+    image = image[70:140,:,:]
+    image = cv2.resize(image,(128,32))
+
+    return image
+```
+
+I finally randomly shuffled the data set and put 20% of the data into a validation set. 
+
+```python
+#data.py : get_csv_data()
+
+np.random.shuffle(data)
+
+train, valid  = model_selection.train_test_split(data, test_size=.2)
+
+```
+
+I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was 25 as evidenced by training and the validation loss. I used an adam optimizer so that manually training the learning rate wasn't necessary.
 
 ```
 Epoch 1/25

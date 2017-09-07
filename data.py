@@ -20,13 +20,13 @@ def get_csv_data():
     CENTER,LEFT,RIGHT,STEERING,THROTTLE,BRAKE,SPEED=range(7)
 
     driving_log  = pd.io.parsers.read_csv('./SimulatorTraining/driving_log.csv').as_matrix()
+
     count = len(driving_log)
     ileft = np.random.choice(count,count//2,replace=False)
     iright = np.random.choice(count,count//2,replace=False)
 
-    print(driving_log.shape)
-
     data=driving_log[:,[CENTER,STEERING,THROTTLE,BRAKE,SPEED]]
+
     left_data=driving_log[:,[LEFT,STEERING,THROTTLE,BRAKE,SPEED]] [ileft , :]
     right_data=driving_log[:,[RIGHT,STEERING,THROTTLE,BRAKE,SPEED]] [iright , :]
 
@@ -35,6 +35,9 @@ def get_csv_data():
 
     data=np.concatenate( (data,left_data) )
     data=np.concatenate( (data,right_data) )
+
+    np.random.shuffle(data)
+
     train, valid  = model_selection.train_test_split(data, test_size=.2)
 
     return train,valid
