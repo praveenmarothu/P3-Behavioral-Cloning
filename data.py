@@ -30,6 +30,9 @@ def get_csv_data():
     left_data=driving_log[:,[LEFT,STEERING,THROTTLE,BRAKE,SPEED]] [ileft , :]
     right_data=driving_log[:,[RIGHT,STEERING,THROTTLE,BRAKE,SPEED]] [iright , :]
 
+    left_data[:,[STEERING]]=left_data[:,[STEERING]] + 0.25
+    right_data[:,[STEERING]]=right_data[:,[STEERING]] - 0.25
+
     data=np.concatenate( (data,left_data) )
     data=np.concatenate( (data,right_data) )
     train, valid  = model_selection.train_test_split(data, test_size=.2)
